@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Govardhanan P T — Build Surface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    /* Premium Palette */
+    --void: #0a0a0c;
+    --glass: rgba(255, 255, 255, 0.02);
+    --glass-border: rgba(197, 160, 89, 0.15);
+    --glass-strong: rgba(255, 255, 255, 0.05);
+    
+    --accent-1: #C5A059; /* Rich Gold */
+    --accent-2: #F1E5C3; /* Champagne */
+    --accent-3: #8C6C42; /* Bronze */
+    
+    --text: #F8F5F2; /* Pearl White */
+    --dim: #A8A39D; /* Warm Grey */
+    --dim-2: #6B6761;
+    --gold: #D4AF37; /* Bright Gold for Badges */
+    --blood-red: #ff1a1a;
+    --flash: #ffeb3b;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; cursor: none; }
+  html{ scroll-behavior:smooth; }
+  body{
+    background:var(--void);
+    color:var(--text);
+    font-family:'Sora', sans-serif;
+    font-weight:300;
+    overflow-x:hidden;
+    /* Hide overflow during loading */
+    overflow-y:hidden; 
+  }
+  ::selection{ background:var(--accent-1); color:#050507; }
+  a{ color:inherit; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+  }
+
+  /* ---------- EXTENDED DRAMA LOADING SCREEN ---------- */
+  #stickman-loader {
+    position: fixed;
+    inset: 0;
+    background-color: var(--void);
+    z-index: 999999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.8s ease-in-out, visibility 0.8s ease-in-out;
+  }
+  #stickman-loader.hidden {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .screen-flash {
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
+    z-index: -1;
+    animation: bg-flash 7.5s forwards;
+  }
+
+  .drama-scene {
+    width: 240px;
+    height: 120px;
+    margin-bottom: -4px; 
+    position: relative;
+    animation: scene-shake 7.5s forwards;
+    overflow: visible;
+  }
+
+  .drama-svg {
+    width: 100%;
+    height: 100%;
+    stroke: var(--accent-1);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    filter: drop-shadow(0 0 6px rgba(197, 160, 89, 0.4));
+    overflow: visible;
+  }
+
+  .head { fill: var(--void); }
+  
+  /* --- 1. First Kill (Shooter -> Victim) --- */
+  .shooter-arm {
+    transform-origin: 40px 55px;
+    animation: aim-gun 7.5s forwards;
+  }
+  .bullet {
+    stroke: var(--flash);
+    stroke-width: 3;
+    filter: drop-shadow(0 0 10px var(--flash));
+    animation: fire-bullet 7.5s forwards;
+  }
+  .muzzle-flash {
+    fill: var(--flash);
+    stroke: none;
+    transform-origin: 65px 54px;
+    animation: flash-bang 7.5s forwards;
+    filter: drop-shadow(0 0 15px var(--flash));
+  }
+  .shell-casing {
+    fill: #d4af37;
+    stroke: none;
+    transform-origin: 55px 54px;
+    animation: eject-shell 7.5s forwards;
+  }
+  .victim {
+    transform-origin: 160px 110px;
+    animation: victim-fall 7.5s forwards;
+  }
+  .victim-head {
+    transform-origin: 160px 50px;
+    animation: head-snap 7.5s forwards;
+  }
+  .blood-splatter {
+    fill: var(--blood-red);
+    stroke: none;
+    animation: splatter 7.5s forwards;
+    filter: drop-shadow(0 0 12px rgba(255, 26, 26, 0.8));
+  }
+  .blood-spray {
+    stroke: var(--blood-red);
+    stroke-width: 3;
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    animation: spray 7.5s forwards;
+  }
+
+  /* --- 2. Second Kill (Helicopter -> Shooter) --- */
+  .helicopter {
+    animation: heli-fly 7.5s forwards;
+  }
+  .main-rotor {
+    stroke-dasharray: 10 5;
+    animation: rotor-spin 0.1s linear infinite;
+  }
+  .heli-muzzle-flash {
+    fill: var(--flash);
+    stroke: none;
+    transform-origin: 40px 25px;
+    animation: heli-flash 7.5s forwards;
+    filter: drop-shadow(0 0 15px var(--flash));
+  }
+  .heli-bullet {
+    stroke: var(--flash);
+    stroke-width: 4;
+    filter: drop-shadow(0 0 10px var(--flash));
+    animation: heli-fire 7.5s forwards;
+  }
+  .shooter-wrapper {
+    transform-origin: 40px 110px;
+    animation: shooter-die 7.5s forwards;
+  }
+  .shooter-splatter {
+    fill: var(--blood-red);
+    stroke: none;
+    animation: shooter-blood 7.5s forwards;
+    filter: drop-shadow(0 0 12px rgba(255, 26, 26, 0.8));
+  }
+
+
+  /* ---------- TIMELINE KEYFRAMES (7.5s Loop) ---------- */
+
+  /* Double Screen Shake (Frame 13% = First Shot | Frame 55% = Heli Shot) */
+  @keyframes scene-shake {
+    0%, 12% { transform: translate(0, 0) rotate(0deg); }
+    13% { transform: translate(-10px, 6px) rotate(-2deg); }
+    14% { transform: translate(8px, -4px) rotate(1deg); }
+    15%, 54% { transform: translate(0, 0) rotate(0deg); }
+    55% { transform: translate(-12px, 8px) rotate(-3deg); }
+    56% { transform: translate(10px, -6px) rotate(2deg); }
+    57%, 100% { transform: translate(0, 0) rotate(0deg); }
+  }
+
+  @keyframes bg-flash {
+    0%, 12% { opacity: 0; }
+    13% { opacity: 0.2; }
+    15%, 54% { opacity: 0; }
+    55% { opacity: 0.25; }
+    57%, 100% { opacity: 0; }
+  }
+
+  /* First Kill Animations */
+  @keyframes aim-gun {
+    0%, 5% { transform: rotate(70deg); } 
+    10%, 100% { transform: rotate(0deg); }
+  }
+  @keyframes fire-bullet {
+    0%, 12% { opacity: 0; transform: translateX(0); }
+    13% { opacity: 1; transform: translateX(0); }
+    14% { opacity: 1; transform: translateX(70px); } 
+    15%, 100% { opacity: 0; transform: translateX(80px); }
+  }
+  @keyframes flash-bang {
+    0%, 12% { opacity: 0; transform: scale(0); }
+    13% { opacity: 1; transform: scale(1.5); }
+    14%, 100% { opacity: 0; transform: scale(0); }
+  }
+  @keyframes eject-shell {
+    0%, 12% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+    13% { opacity: 1; transform: translate(-2px, -8px) rotate(120deg); }
+    20%, 100% { opacity: 0; transform: translate(-15px, 20px) rotate(360deg); }
+  }
+  @keyframes victim-fall {
+    0%, 13% { transform: rotate(0deg); opacity: 1; }
+    14% { transform: rotate(15deg) translateX(5px); opacity: 1; } 
+    25%, 100% { transform: rotate(90deg) translateY(30px) translateX(15px); opacity: 0; }
+  }
+  @keyframes head-snap {
+    0%, 13% { transform: rotate(0deg); }
+    14%, 100% { transform: rotate(50deg); } 
+  }
+  @keyframes splatter {
+    0%, 13% { r: 0; opacity: 1; }
+    14% { r: 14; opacity: 1; }
+    25%, 100% { r: 28; opacity: 0; } 
+  }
+  @keyframes spray {
+    0%, 13% { stroke-dashoffset: 20; opacity: 1; }
+    14% { stroke-dashoffset: 0; opacity: 1; }
+    20%, 100% { opacity: 0; }
+  }
+
+  /* Helicopter Arrival & Second Kill */
+  @keyframes heli-fly {
+    0%, 30% { transform: translate(240px, -60px) rotate(-10deg); opacity: 0; }
+    40% { transform: translate(100px, -5px) rotate(5deg); opacity: 1; }
+    45%, 65% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; } /* Stops exactly over shooter */
+    75%, 100% { transform: translate(-200px, -40px) rotate(-15deg); opacity: 1; }
+  }
+  @keyframes rotor-spin {
+    0% { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -15; }
+  }
+  @keyframes heli-flash {
+    0%, 54% { opacity: 0; transform: scale(0); }
+    55% { opacity: 1; transform: scale(1.8); }
+    56%, 100% { opacity: 0; transform: scale(0); }
+  }
+  @keyframes heli-fire {
+    0%, 54% { opacity: 0; transform: translateY(0); }
+    55% { opacity: 1; transform: translateY(0); }
+    56% { opacity: 1; transform: translateY(15px); }
+    57%, 100% { opacity: 0; transform: translateY(20px); }
+  }
+  @keyframes shooter-die {
+    0%, 55% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    56% { transform: translate(0, 5px) rotate(-5deg); opacity: 1; }
+    65%, 100% { transform: translate(-20px, 30px) rotate(-90deg); opacity: 0; }
+  }
+  @keyframes shooter-blood {
+    0%, 55% { r: 0; opacity: 1; }
+    56% { r: 18; opacity: 1; }
+    70%, 100% { r: 35; opacity: 0; }
+  }
+
+  /* Progress Bar Elements */
+  .loader-floor {
+    width: 240px;
+    height: 3px;
+    background: rgba(197, 160, 89, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .loader-progress {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-3), var(--accent-1));
+    box-shadow: 0 0 10px var(--accent-1);
+    transition: width 0.1s linear;
+  }
+  .loading-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent-1);
+    letter-spacing: 4px;
+    margin-top: 20px;
+    text-transform: uppercase;
+    animation: text-pulse 1s infinite alternate;
+  }
+
+  @keyframes text-pulse {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; text-shadow: 0 0 10px rgba(197, 160, 89, 0.4); }
+  }
+
+  /* ---------- CUSTOM CURSOR ---------- */
+  .cursor-dot, .cursor-outline {
+    position: fixed;
+    top: 0; left: 0;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  .cursor-dot {
+    width: 6px; height: 6px;
+    background-color: var(--accent-1);
+    box-shadow: 0 0 10px var(--accent-1);
+    transition: transform 0.15s ease-out, background-color 0.2s;
+  }
+  .cursor-outline {
+    width: 34px; height: 34px;
+    border: 1px solid rgba(197, 160, 89, 0.5);
+    transition: width 0.2s, height 0.2s, border-color 0.2s;
+  }
+  body:hover .cursor-dot, body:hover .cursor-outline { opacity: 1; }
+
+  canvas#bg{ position:fixed; inset:0; z-index:0; width:100%; height:100%; display:block; }
+  canvas#fg{ position:fixed; inset:0; z-index:1; width:100%; height:100%; display:block; pointer-events:none; }
+
+  .grain{
+    position:fixed; inset:0; z-index:2; pointer-events:none; opacity:0.04;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  main{ position:relative; z-index:3; }
+
+  section{
+    min-height:100vh; display:flex; flex-direction:column; justify-content:center;
+    padding:140px 8vw; position:relative;
+  }
+
+  .glass{
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    backdrop-filter:blur(24px) saturate(160%);
+    -webkit-backdrop-filter:blur(24px) saturate(160%);
+    border-radius:20px;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+  }
+
+  .dock{
+    position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+    z-index:50; display:flex; gap:6px; padding:8px; border-radius:100px;
+    background:rgba(10, 10, 12, 0.75);
+    border:1px solid var(--glass-border);
+    backdrop-filter:blur(18px) saturate(140%);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);
+  }
+  .dock a{
+    text-decoration:none; font-family:'JetBrains Mono', monospace; font-size:11px;
+    letter-spacing:0.5px; color:var(--dim); padding:10px 18px; border-radius:100px;
+    transition:all 0.35s ease; white-space:nowrap;
+  }
+  .dock a.active{ 
+    color:var(--void); 
+    background:linear-gradient(120deg, var(--accent-2), var(--accent-1)); 
+    box-shadow: 0 0 15px rgba(197, 160, 89, 0.3);
+  }
+  .dock a:not(.active):hover{ color:var(--text); }
+  @media (max-width:680px){ .dock a{ padding:9px 12px; font-size:9.5px; } }
+
+  .hero{ align-items:flex-start; justify-content:center; }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace; font-size:12px; letter-spacing:3px;
+    color:var(--accent-1); text-transform:uppercase; margin-bottom:28px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .eyebrow::before{ content:''; width:34px; height:1px; background:var(--accent-1); }
+  
+  h1.title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    max-width: 1000px;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  .title .name-full {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900; 
+    font-size: clamp(3rem, 7vw, 6.8rem); 
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    background: linear-gradient(
+      to right,
+      #B38728 0%, #FDF5A6 20%, #C5A059 40%,
+      #8C6C42 60%, #FDF5A6 80%, #B38728 100%
+    );
+    background-size: 200% auto;
+    color: transparent;
+    -webkit-background-clip: text; 
+    background-clip: text; 
+    filter: drop-shadow(0px 6px 15px rgba(197, 160, 89, 0.3));
+    animation: gold-shine 5s linear infinite;
+  }
+
+  @keyframes gold-shine {
+    to { background-position: -200% center; }
+  }
+
+  /* Real Blood Texture & Drip Effects */
+  .blood-char {
+    position: relative;
+    display: inline-block;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.65'/%3E%3C/svg%3E"), 
+                linear-gradient(180deg, #600000 0%, #200000 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent; 
+    color: transparent;
+    filter: drop-shadow(0 4px 10px rgba(120, 0, 0, 0.7));
+  }
+  .blood-char::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 60%;
+    width: 3px;
+    height: 30px; 
+    background: linear-gradient(180deg, transparent 0%, #4a0000 20%, #1a0000 100%);
+    transform: translateX(-50%);
+    border-radius: 3px;
+    z-index: 9;
+    opacity: 0.9;
+  }
+  .blood-char::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: calc(60% + 26px);
+    width: 6px;
+    height: 6px;
+    background: radial-gradient(circle at 30% 30%, #8a0000, #2a0000);
+    border-radius: 50%;
+    transform: translateX(-50%);
+    animation: blood-drop 2.5s infinite cubic-bezier(0.5, 0, 0.2, 1);
+    animation-delay: var(--delay);
+    z-index: 10;
+  }
+
+  @keyframes blood-drop {
+    0% { transform: translateX(-50%) translateY(0) scaleY(1); opacity: 1; border-radius: 50% 50% 50% 50% / 20% 20% 80% 80%; }
+    40% { transform: translateX(-50%) translateY(40px) scaleY(1.3); opacity: 1; border-radius: 50%; }
+    60% { transform: translateX(-50%) translateY(65px) scaleY(0.7); opacity: 0; }
+    100% { opacity: 0; }
+  }
+  
+  .hero-sub{
+    font-weight:300; font-size:clamp(1rem, 1.6vw, 1.25rem); color:var(--dim);
+    max-width:560px; line-height:1.75; margin-top:24px;
+  }
+  .hero-sub b{ color:var(--text); font-weight:500; }
+  .hero-cta{ display:flex; gap:16px; margin-top:48px; flex-wrap:wrap; }
+  .btn{
+    font-family:'JetBrains Mono', monospace; font-size:12.5px; letter-spacing:0.5px;
+    padding:15px 28px; border-radius:100px; text-decoration:none;
+    transition:all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:inline-flex; align-items:center; gap:8px;
+    position: relative; overflow: hidden; z-index: 1;
+  }
+  .btn-primary{ background:linear-gradient(120deg, var(--accent-2), var(--accent-1)); color:#050507; font-weight:600; border:none; }
+  .btn-primary:hover{ transform: translateY(-2px); box-shadow: 0 8px 30px rgba(197, 160, 89, 0.4); }
+  .btn-ghost{ color:var(--text); border:1px solid var(--glass-border); background:var(--glass); }
+  .btn-ghost:hover{ 
+    border-color:var(--accent-1); color:var(--accent-2);
+    background: rgba(197, 160, 89, 0.05); box-shadow: inset 0 0 20px rgba(197, 160, 89, 0.1); 
+  }
+
+  .section-head{ margin-bottom:56px; max-width:640px; }
+  .section-num{ font-family:'JetBrains Mono', monospace; font-size:11.5px; letter-spacing:2px; color:var(--dim-2); display:block; margin-bottom:14px; }
+  .section-title{ font-weight:700; font-size:clamp(1.9rem, 4vw, 2.9rem); letter-spacing:-0.02em; }
+  .section-title .grad{ background:linear-gradient(120deg, var(--accent-2), var(--accent-3)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .section-desc{ color:var(--dim); margin-top:16px; line-height:1.75; font-size:1rem; font-weight:300; }
+
+  .reveal{ opacity:0; transform:translateY(30px); transition:opacity 0.9s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .reveal.in{ opacity:1; transform:translateY(0); }
+
+  .about-panel{ padding:48px; max-width:960px; }
+  .about-layout { display: flex; flex-direction: column; gap: 48px; align-items: center; }
+  @media (min-width: 860px) { .about-layout { flex-direction: row; align-items: stretch; } }
+
+  .profile-wrap {
+    flex-shrink: 0; width: 100%; max-width: 280px; aspect-ratio: 3/4;
+    border-radius: 16px; overflow: hidden; border: 1px solid var(--glass-border);
+    position: relative; transform: translateZ(30px); background: rgba(10, 10, 12, 0.5);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .profile-wrap img {
+    width: 100%; height: 100%; object-fit: cover;
+    filter: grayscale(0.2) sepia(0.25) hue-rotate(-10deg) contrast(1.15) brightness(0.9);
+    transition: filter 0.6s ease, transform 0.8s ease;
+  }
+  .about-panel:hover .profile-wrap img { filter: grayscale(0.05) sepia(0.1) hue-rotate(-5deg) contrast(1.1) brightness(1.05); transform: scale(1.04); }
+  .profile-wrap::after {
+    content:''; position:absolute; inset:0; 
+    background:linear-gradient(160deg, rgba(197,160,89,0.15), rgba(10,10,12,0.4)); pointer-events:none;
+  }
+
+  .about-text-content { display: flex; flex-direction: column; justify-content: center; }
+  .about-panel p{ color:var(--dim); line-height:1.85; font-size:1.02rem; font-weight:300; margin-bottom:20px; transform: translateZ(20px); }
+  .about-panel b{ color:var(--text); font-weight:500; }
+  .about-panel .hl{ color:var(--accent-1); font-weight:500; text-shadow: 0 0 15px rgba(197, 160, 89, 0.2); }
+  .stat-row{ display:flex; gap:40px; margin-top:24px; flex-wrap:wrap; transform: translateZ(30px); }
+  .stat b{ display:block; font-size:1.8rem; font-weight:700; background:linear-gradient(120deg, var(--accent-2), var(--accent-1)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .stat span{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--dim-2); letter-spacing:0.5px; }
+
+  /* ---------- CAPABILITIES GRID ---------- */
+  .cap-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; position: relative;}
+  @media (max-width:900px){ .cap-grid{ grid-template-columns:repeat(2, 1fr); } }
+  @media (max-width:560px){ .cap-grid{ grid-template-columns:1fr; } }
+  .cap-card{ padding:30px 26px; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  
+  .cap-card.scroll-active {
+    border-color: var(--accent-1);
+    background: rgba(197, 160, 89, 0.08);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(197, 160, 89, 0.1);
+    transform: scale(1.05) translateZ(40px); z-index: 10;
+  }
+  .cap-card.scroll-active .n { color: var(--text); text-shadow: 0 0 10px var(--accent-1); }
+  .cap-card.scroll-active h4 { color: var(--accent-1); }
+
+  .cap-card > * { transform: translateZ(25px); transition: color 0.3s ease, text-shadow 0.3s ease; }
+  .cap-card .n{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--accent-1); display: block;}
+  .cap-card h4{ font-weight:600; font-size:1.05rem; margin:14px 0 10px; color: var(--text); }
+  .cap-card p{ font-size:12.5px; color:var(--dim); line-height:1.65; font-weight:300; }
+
+  /* ---------- WORK GRID ---------- */
+  .work-thumb{ width:100%; height:170px; border-radius:14px; overflow:hidden; margin-bottom:22px; position:relative; transform: translateZ(30px); }
+  .work-thumb img{ width:100%; height:100%; object-fit:cover; display:block; filter:grayscale(0.8) contrast(1.1) brightness(0.6) sepia(0.2); transition:filter 0.6s ease, transform 0.8s ease; }
+  .work-thumb::after{ content:''; position:absolute; inset:0; background:linear-gradient(160deg, rgba(197,160,89,0.15), rgba(10,10,12,0.9)); pointer-events:none; }
+  .work-card:hover .work-thumb img{ filter:grayscale(0.1) contrast(1.2) brightness(0.9) sepia(0.1); transform:scale(1.06); }
+
+  .work-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:20px; }
+  @media (max-width:860px){ .work-grid{ grid-template-columns:1fr; } }
+  
+  .work-card{ padding:34px; position:relative; overflow:hidden; }
+  .work-card:hover{ border-color:rgba(197, 160, 89, 0.5); box-shadow: 0 15px 40px rgba(0,0,0,0.7); }
+  .work-card::before{
+    content:''; position:absolute; top:-40%; right:-40%; width:200px; height:200px; border-radius:50%;
+    background:radial-gradient(circle, rgba(197, 160, 89, 0.12), transparent 70%); opacity:0; transition:opacity 0.6s ease;
+  }
+  .work-card:hover::before{ opacity:1; }
+  
+  @media (min-width: 861px) {
+    .work-card.full-width-card { grid-column: span 2; }
+    .work-card.full-width-card .work-thumb { height: 320px; }
+  }
+
+  .work-card h3, .work-card p, .work-tags { transform: translateZ(20px); }
+  .work-tags{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .work-tags span{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--accent-2); border:1px solid rgba(197, 160, 89, 0.3); padding:4px 10px; border-radius:100px; background: rgba(0,0,0,0.4); }
+  .work-tags span.tag-highlight { 
+    color: var(--void); background: linear-gradient(120deg, var(--gold), var(--accent-3));
+    border-color: transparent; font-weight: 600; box-shadow: 0 0 12px rgba(212, 175, 55, 0.3);
+  }
+
+  .work-card h3{ font-weight:600; font-size:1.25rem; margin-bottom:12px; }
+  .work-card p{ color:var(--dim); font-size:0.92rem; line-height:1.7; font-weight:300; }
+
+  /* ---------- CONTACT ---------- */
+  .contact-panel{ padding:60px; max-width:760px; text-align:left; }
+  .contact-panel > * { transform: translateZ(20px); }
+  .contact-panel h2{ font-weight:800; font-size:clamp(2rem, 5vw, 3.2rem); letter-spacing:-0.02em; line-height:1.15; margin-bottom:20px; }
+  .contact-panel h2 .grad{ background:linear-gradient(120deg, var(--accent-2), var(--accent-3)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .contact-panel p.desc{ color:var(--dim); margin-bottom:36px; font-weight:300; line-height:1.7; }
+  .contact-links{ display:flex; gap:16px; flex-wrap:wrap; }
+
+  footer{ padding:40px 8vw 120px; text-align:left; position: relative; z-index: 3; }
+  footer p{ font-family:'JetBrains Mono', monospace; font-size:10.5px; color:var(--dim-2); letter-spacing:0.5px; }
+</style>
+</head>
+<body>
+
+<!-- Extended Drama Animation Loader -->
+<div id="stickman-loader">
+  <div class="screen-flash"></div>
+  
+  <div class="drama-scene">
+    <svg class="drama-svg" viewBox="0 0 240 120">
+      
+      <!-- Blood Splatter Effects (First Kill) -->
+      <circle cx="160" cy="50" r="0" class="blood-splatter" />
+      <line x1="160" y1="50" x2="190" y2="40" class="blood-spray" />
+      <line x1="160" y1="50" x2="185" y2="65" class="blood-spray" />
+
+      <!-- Blood Splatter Effects (Second Kill - Shooter dies) -->
+      <circle cx="40" cy="40" r="0" class="shooter-splatter" />
+
+      <!-- Shooter (Left) -->
+      <g class="shooter-wrapper">
+        <circle cx="40" cy="40" r="9" class="head" />
+        <!-- Body -->
+        <line x1="40" y1="49" x2="40" y2="85" />
+        <!-- Legs -->
+        <line x1="40" y1="85" x2="25" y2="110" />
+        <line x1="40" y1="85" x2="55" y2="110" />
+        <!-- Back Arm -->
+        <line x1="40" y1="55" x2="30" y2="80" />
+        
+        <!-- Gun Arm (Animated) -->
+        <g class="shooter-arm">
+          <line x1="40" y1="55" x2="65" y2="55" />
+          <path d="M65,51 L65,57 L74,57 L74,51 Z" fill="var(--accent-1)" stroke="none" />
+          <polygon points="76,54 86,48 83,54 93,54 83,57 86,63" class="muzzle-flash" />
+        </g>
+      </g>
+      
+      <rect x="55" y="52" width="4" height="2" class="shell-casing" />
+      <line x1="78" y1="54" x2="88" y2="54" class="bullet" stroke-linecap="round" />
+
+      <!-- Victim (Right) -->
+      <g class="victim">
+        <circle cx="160" cy="40" r="9" class="head victim-head" />
+        <line x1="160" y1="49" x2="160" y2="85" />
+        <line x1="160" y1="85" x2="145" y2="110" />
+        <line x1="160" y1="85" x2="175" y2="110" />
+        <line x1="160" y1="55" x2="145" y2="30" />
+        <line x1="160" y1="55" x2="175" y2="30" />
+      </g>
+
+      <!-- Helicopter (XD Entry) -->
+      <g class="helicopter">
+        <!-- Body -->
+        <rect x="20" y="0" width="40" height="20" rx="6" fill="var(--void)" stroke="var(--accent-1)" stroke-width="2"/>
+        <!-- Window -->
+        <path d="M22,10 L30,10 L30,2 C25,2 22,5 22,10 Z" fill="var(--accent-1)" stroke="none"/>
+        <!-- Tail -->
+        <path d="M60,5 L85,5 L85,12 L60,10 Z" fill="var(--void)" stroke="var(--accent-1)" stroke-width="2"/>
+        <!-- Rotors -->
+        <line x1="85" y1="0" x2="85" y2="17" stroke="var(--accent-1)" stroke-width="2" class="main-rotor"/> <!-- Tail rotor -->
+        <line x1="10" y1="-5" x2="70" y2="-5" stroke="var(--accent-1)" stroke-width="2" class="main-rotor"/> <!-- Top rotor -->
+        <line x1="40" y1="0" x2="40" y2="-5" stroke="var(--accent-1)" stroke-width="2"/> <!-- Rotor mount -->
+        
+        <!-- XD Text -->
+        <text x="36" y="15" fill="var(--accent-1)" font-size="12" font-family="JetBrains Mono" font-weight="bold" stroke="none">XD</text>
+        
+        <!-- Undercarriage / Gun -->
+        <line x1="40" y1="20" x2="40" y2="28" stroke="var(--accent-1)" stroke-width="3"/>
+        <polygon points="40,28 35,35 40,32 45,35" class="heli-muzzle-flash"/>
+        
+        <!-- Heli Bullet to Shooter -->
+        <line x1="40" y1="28" x2="40" y2="40" class="heli-bullet" stroke-linecap="round"/>
+      </g>
+
+    </svg>
+  </div>
+  
+  <div class="loader-floor">
+    <div class="loader-progress" id="stickman-progress"></div>
+  </div>
+  
+  <div class="loading-text">EXECUTING BUILD...</div>
+</div>
+
+<!-- Custom Cursor HTML -->
+<div class="cursor-dot" id="cursor-dot"></div>
+<div class="cursor-outline" id="cursor-outline"></div>
+
+<canvas id="bg"></canvas>
+<canvas id="fg"></canvas>
+<div class="grain"></div>
+
+<div class="dock" id="dock">
+  <a href="#home" data-target="home" class="active">HOME</a>
+  <a href="#about" data-target="about">ABOUT</a>
+  <a href="#capabilities" data-target="capabilities">CAPABILITIES</a>
+  <a href="#work" data-target="work">WORK</a>
+  <a href="#contact" data-target="contact">CONTACT</a>
+</div>
+
+<main>
+  <section id="home" class="hero">
+    <div class="eyebrow">XD Enterprises — Controlled Force</div>
+    
+    <!-- Bold, Luxurious Single Line Name Layout -->
+    <h1 class="title">
+      <span class="name-full hacker-text" data-value="Govardhanan P T"></span>
+    </h1>
+
+    <p class="hero-sub">Full-stack developer out of <b>Kozhikode, Kerala</b> — moves through a build like a controlled detonation. Takes a system apart, finds what's weak, and doesn't stop until nothing half-built is left standing. Firebase, trading engines, AI agents — all the same instinct, aimed differently.</p>
+    <div class="hero-cta">
+      <a href="#work" class="btn btn-primary interactive">See the work →</a>
+      <a href="#contact" class="btn btn-ghost interactive">Get in touch</a>
+    </div>
+  </section>
+
+  <section id="about">
+    <div class="section-head reveal">
+      <span class="section-num">01 — ABOUT</span>
+      <h2 class="section-title">Curiosity that keeps <span class="grad">shipping.</span></h2>
+    </div>
+    <div class="glass about-panel tilt-card reveal">
+      <div class="about-layout">
+        
+        <div class="profile-wrap">
+          <img src="images/img.png" alt="Govardhanan P T - Profile Portrait">
+        </div>
+
+        <div class="about-text-content">
+          <p>The work spans further than most single developers cover — <b>Firebase-backed SPAs and PWAs</b>, <b>Pine Script indicators</b> for TradingView, client tool suites for hospitality and retail brands, document automation, and <span class="hl">multi-agent AI tooling</span>.</p>
+          <p>The thread that connects it isn't a framework — it's an intensity that takes an idea from a conversation to a working build fast, then circles back and tears it down to rebuild it sharper. That relentlessness is a real strength, and — pushed too far — occasionally the reason a finished feature gets rebuilt at 2am for the third time, just because it could be more precise.</p>
+          <p>Off the clock, there's a genuine interest in <b>trading and technical analysis</b>, and a background connection to <b>sterile processing (CSSD)</b> — an unusual pairing that says something about a mind that doesn't stay in one lane.</p>
+          <div class="stat-row">
+            <div class="stat"><b>10+</b><span>SHIPPED PROJECTS</span></div>
+            <div class="stat"><b>3</b><span>DOMAINS — FINTECH, AI & SEC</span></div>
+            <div class="stat"><b>1</b><span>PERSON, FULL STACK</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="capabilities">
+    <div class="section-head reveal">
+      <span class="section-num">02 — CAPABILITIES</span>
+      <h2 class="section-title">What's actually <span class="grad">under the hood.</span></h2>
+      <p class="section-desc">Not a badge wall — the tools that show up project after project, because they keep earning their place. Keep scrolling to scan.</p>
+    </div>
+    
+    <!-- Scrubbing 9 Tab Grid -->
+    <div class="cap-grid" id="capabilities-grid">
+      <div class="glass cap-card tilt-card reveal"><span class="n">01</span><h4>Firebase Ecosystem</h4><p>Firestore, Auth, Realtime DB, Cloud Functions — the backbone of nearly every SPA and PWA shipped.</p></div>
+      <div class="glass cap-card tilt-card reveal"><span class="n">02</span><h4>Pine Script</h4><p>Custom TradingView indicators and multi-strategy plugin hubs, built for real chart conditions.</p></div>
+      <div class="glass cap-card tilt-card reveal"><span class="n">03</span><h4>Real-Time Systems</h4><p>WebSocket pipelines and client-side event handling for live prices, signals, and transaction state.</p></div>
+      <div class="glass cap-card tilt-card reveal"><span class="n">04</span><h4>Multi-Agent Orchestration</h4><p>Agent handoff, swarm coordination, and conflict resolution across LLM-driven workflows.</p></div>
+      <div class="glass cap-card tilt-card reveal"><span class="n">05</span><h4>E2E Encryption</h4><p>Client-side key generation and message encryption for privacy-first, identity-less tools.</p></div>
+      <div class="glass cap-card tilt-card reveal"><span class="n">06</span><h4>Three.js / WebGL</h4><p>3D environments and shader-driven visuals used with intent, not as decoration.</p></div>
+      <div class="glass cap-card tilt-card reveal"><span class="n">07</span><h4>PWA Engineering</h4><p>Installable, offline-aware apps for iOS/Android without always reaching for Cloud Functions.</p></div>
+      <div class="glass cap-card tilt-card reveal"><span class="n">08</span><h4>Auth & Session Architecture</h4><p>Firebase Auth flows debugged down to race conditions during registration.</p></div>
+      <div class="glass cap-card tilt-card reveal"><span class="n">09</span><h4>Document Automation</h4><p>DOCX generation and structured reporting for non-technical client teams.</p></div>
+    </div>
+  </section>
+
+  <section id="work">
+    <div class="section-head reveal">
+      <span class="section-num">03 — SELECTED WORK</span>
+      <h2 class="section-title">A few builds worth <span class="grad">pointing at.</span></h2>
+    </div>
+    <div class="work-grid">
+      
+      <div class="glass work-card tilt-card interactive reveal">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=600&auto=format&fit=crop" alt="Trading terminal interface concept" loading="lazy"></div>
+        <div class="work-tags"><span>Binance API</span><span>WebSocket</span></div>
+        <h3>Crypto Trading Terminal & Alert PWA</h3>
+        <p>A cyberpunk-themed terminal on Binance's public WebSocket/REST APIs with a live signal engine, paired with a client-side alert PWA evaluating RSI, EMA, MACD, Bollinger Bands, and volume spikes.</p>
+      </div>
+      
+      <div class="glass work-card tilt-card interactive reveal">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=600&auto=format&fit=crop" alt="Circuit and signal pattern" loading="lazy"></div>
+        <div class="work-tags"><span>Pine Script</span><span>Multi-Strategy</span></div>
+        <h3>AMED Indicator & Six-Strategy Hub</h3>
+        <p>A strategy indicator expanded into a six-strategy plugin hub with its own showcase site, each module independently toggleable against live TradingView data.</p>
+      </div>
+      
+      <div class="glass work-card tilt-card interactive reveal">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=600&auto=format&fit=crop" alt="Cybersecurity data matrix visualization" loading="lazy"></div>
+        <div class="work-tags"><span class="tag-highlight">Patent Pending</span><span>AI Taste Forecaster</span></div>
+        <h3>XD Trade Forecast</h3>
+        <p>An advanced AI taste forecaster designed to predict market sentiment and asset appetite before volume spikes occur. Built on a proprietary predictive engine mapped into a full Three.js environment.</p>
+      </div>
+
+      <div class="glass work-card tilt-card interactive reveal">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600&auto=format&fit=crop" alt="Analytics dashboard concept" loading="lazy"></div>
+        <div class="work-tags"><span>Multi-Exchange</span><span>Analytics</span></div>
+        <h3>CryptoTrack XD</h3>
+        <p>A real-time portfolio tracker aggregating balances and price feeds across multiple exchanges into one Firebase-backed dashboard with historical P&L.</p>
+      </div>
+      
+      <div class="glass work-card tilt-card interactive reveal">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=600&auto=format&fit=crop" alt="Encrypted network concept" loading="lazy"></div>
+        <div class="work-tags"><span>E2E Encryption</span><span>Privacy</span></div>
+        <h3>GhostLine — Anonymous Chat</h3>
+        <p>A private messaging PWA with no phone number, no email, no persistent identity — locally generated keypairs, client-side encryption, self-destructing threads.</p>
+      </div>
+      
+      <div class="glass work-card tilt-card interactive reveal">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=600&auto=format&fit=crop" alt="Multi-agent system concept" loading="lazy"></div>
+        <div class="work-tags"><span>Multi-Agent</span><span>Groq API</span></div>
+        <h3>xdAi — Multi-Agent Interface</h3>
+        <p>A chat interface with an "XD SeekBots" swarm-simulation tab, exploring how multiple agents coordinate and resolve conflicting outputs.</p>
+      </div>
+
+      <!-- NEW PROJECT: Xalgomyth Enc (Updated Image URL) -->
+      <div class="glass work-card tilt-card interactive reveal">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1639322537228-f710d846310a?q=80&w=600&auto=format&fit=crop" alt="Xalgomyth Geometric Cryptography" loading="lazy"></div>
+        <div class="work-tags"><span>Cryptography</span><span>Proprietary Algo</span></div>
+        <h3>Xalgomyth Enc</h3>
+        <p>A custom proprietary encryption framework designed for impenetrable data obfuscation, moving beyond standard AES into a multi-layered, mutating cryptographic algorithm.</p>
+      </div>
+
+      <!-- NEW PROJECT: Xd Messenger -->
+      <div class="glass work-card tilt-card interactive reveal">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=600&auto=format&fit=crop" alt="Xd Messenger Secure Network Nodes" loading="lazy"></div>
+        <div class="work-tags"><span class="tag-highlight">Protocol</span><span>Decentralized</span></div>
+        <h3>Xd Messenger</h3>
+        <p>A fully encrypted communication protocol ensuring zero-knowledge transit for peer-to-peer messaging, routing signals through isolated, stateless handshakes.</p>
+      </div>
+
+      <!-- NEW PROJECT: Wallet Seed Phrase Brute Force (Updated Image URL) -->
+      <div class="glass work-card tilt-card interactive reveal full-width-card">
+        <div class="work-thumb"><img src="https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?q=80&w=1200&auto=format&fit=crop" alt="Code Brute Force Terminal Matrix" loading="lazy"></div>
+        <div class="work-tags"><span class="tag-highlight">Security Research</span><span>Parallel Processing</span></div>
+        <h3>Wallet Seed Phrase Brute Force Toolkit</h3>
+        <p>A high-performance cryptographic toolkit built strictly to stress-test wallet security boundaries. Utilizes deep parallel processing, advanced threading, and optimized wordlist mutation algorithms to audit and attempt recovery of lost mnemonic seed phrases at extreme computational speeds.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="glass contact-panel tilt-card reveal">
+      <span class="section-num">04 — CONTACT</span>
+      <h2>Have something to build? <span class="grad">Let's talk it through.</span></h2>
+      <p class="desc">Open to freelance builds across Firebase apps, trading tools, and security-driven products.</p>
+      <div class="contact-links">
+        <a href="mailto:xdgdotcom@gmail.com" class="btn btn-primary interactive">xdgdotcom@gmail.com</a>
+        <a href="https://instagram.com/xd_grx" target="_blank" rel="noopener" class="btn btn-ghost interactive">@xd_grx</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>XD ENTERPRISES © 2026 — GOVARDHANAN P T — BUILT FROM KOZHIKODE, KERALA</p>
+  </footer>
+</main>
+
+<script>
+  /* ---------- Cinematic Drama Loader Logic (7.5 Seconds) ---------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    const loader = document.getElementById("stickman-loader");
+    const progressBar = document.getElementById("stickman-progress");
+    
+    const loadDuration = 7500; 
+    let prog = 0;
+    const tick = 50; 
+    
+    const progInt = setInterval(() => {
+      prog += (100 / (loadDuration / tick)); 
+      if(prog >= 100) {
+        prog = 100;
+        clearInterval(progInt);
+      }
+      progressBar.style.width = `${prog}%`;
+    }, tick);
+
+    setTimeout(() => {
+      loader.classList.add("hidden");
+      document.body.style.overflowY = "auto";
+      
+      setTimeout(() => {
+        loader.style.display = "none";
+        triggerNameScramble();
+      }, 800);
+      
+    }, loadDuration + 300); 
+  });
+
+
+  /* ---------- 9-Tab Scrubbing Effect on Scroll ---------- */
+  const capSection = document.getElementById('capabilities');
+  const capCards = document.querySelectorAll('.cap-card');
+  
+  window.addEventListener('scroll', () => {
+    if(!capSection) return;
+    
+    const rect = capSection.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    
+    const scrollStart = windowHeight * 0.8; 
+    const scrollEnd = -rect.height + windowHeight * 0.2;
+    
+    const progress = (scrollStart - rect.top) / (scrollStart - scrollEnd);
+    
+    if (progress >= 0 && progress <= 1) {
+      let activeIndex = Math.floor(progress * 9);
+      if(activeIndex > 8) activeIndex = 8;
+      
+      capCards.forEach((card, index) => {
+        if(index === activeIndex) {
+          card.classList.add('scroll-active');
+        } else {
+          card.classList.remove('scroll-active');
+        }
+      });
+    } else if (progress < 0 || progress > 1) {
+      capCards.forEach(card => card.classList.remove('scroll-active'));
+    }
+  });
+
+
+  /* ---------- Custom Interactive Cursor ---------- */
+  const cursorDot = document.getElementById("cursor-dot");
+  const cursorOutline = document.getElementById("cursor-outline");
+  const interactives = document.querySelectorAll('a, .interactive, .tilt-card');
+
+  window.addEventListener("mousemove", function(e) {
+    const posX = e.clientX;
+    const posY = e.clientY;
+    
+    cursorDot.style.left = `${posX}px`;
+    cursorDot.style.top = `${posY}px`;
+    
+    cursorOutline.animate({
+      left: `${posX}px`,
+      top: `${posY}px`
+    }, { duration: 400, fill: "forwards" });
+  });
+
+  interactives.forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      cursorOutline.style.transform = 'translate(-50%, -50%) scale(1.5)';
+      cursorOutline.style.borderColor = 'var(--accent-1)';
+      cursorDot.style.transform = 'translate(-50%, -50%) scale(0.5)';
+    });
+    el.addEventListener('mouseleave', () => {
+      cursorOutline.style.transform = 'translate(-50%, -50%) scale(1)';
+      cursorOutline.style.borderColor = 'rgba(197, 160, 89, 0.5)';
+      cursorDot.style.transform = 'translate(-50%, -50%) scale(1)';
+    });
+  });
+
+  /* ---------- Advanced Hacker Text Reveal with Blood Injection ---------- */
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+  const hackerTitles = document.querySelectorAll(".hacker-text");
+  
+  function scrambleText(element) {
+    let iteration = 0;
+    clearInterval(element.interval);
+    
+    const targetText = element.dataset.value;
+    const bloodIndices = [2, 5, 14]; 
+    
+    element.interval = setInterval(() => {
+      let newHTML = "";
+      
+      targetText.split("").forEach((letter, index) => {
+        let char = index < iteration ? letter : letters[Math.floor(Math.random() * letters.length)];
+        let isBlood = bloodIndices.includes(index) && index < iteration;
+        
+        if (isBlood) {
+          newHTML += `<span class="blood-char" style="--delay: ${index * 0.3}s">${char}</span>`;
+        } else if (char === " ") {
+          newHTML += ` `; 
+        } else {
+          newHTML += `<span>${char}</span>`;
+        }
+      });
+      
+      element.innerHTML = newHTML;
+      
+      if(iteration >= targetText.length){ 
+        clearInterval(element.interval);
+      }
+      iteration += 1 / 3;
+    }, 30);
+  }
+
+  function triggerNameScramble() {
+    hackerTitles.forEach(title => {
+      title.onmouseover = event => {
+        if(!title.classList.contains("blood-active")) {
+            scrambleText(title);
+            title.classList.add("blood-active");
+        }
+      };
+      scrambleText(title);
+      title.classList.add("blood-active");
+    });
+  }
+
+  /* ---------- Dynamic 3D Card Tilt Effect ---------- */
+  const tiltCards = document.querySelectorAll('.tilt-card');
+  tiltCards.forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left; 
+      const y = e.clientY - rect.top;  
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      
+      const rotateX = ((y - centerY) / centerY) * -5; 
+      const rotateY = ((x - centerX) / centerX) * 5;
+      
+      card.style.transform = `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+    });
+    
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = `perspective(1200px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+    });
+  });
+
+  /* ---------- Scroll reveal ---------- */
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold:0.12 });
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+  /* ---------- Nav dock active state ---------- */
+  const dockLinks = document.querySelectorAll('#dock a');
+  const sections = document.querySelectorAll('main section');
+  const navIo = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        dockLinks.forEach(a=>a.classList.remove('active'));
+        const active = document.querySelector(`#dock a[data-target="${entry.target.id}"]`);
+        if(active) active.classList.add('active');
+      }
+    });
+  }, { threshold:0.5 });
+  sections.forEach(s=>navIo.observe(s));
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- Background: Elegant Premium Shader ---------- */
+  (function initBackground(){
+    const canvas = document.getElementById('bg');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+
+    const uniforms = {
+      uTime: { value: 0 },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      uMouse: { value: new THREE.Vector2(0.5, 0.5) }
+    };
+
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        precision highp float;
+        varying vec2 vUv;
+        uniform float uTime;
+        uniform vec2 uResolution;
+        uniform vec2 uMouse;
+
+        // Premium Gold/Dark Palette
+        vec3 palette(float t){
+          vec3 a = vec3(0.04, 0.03, 0.02);
+          vec3 b = vec3(0.35, 0.25, 0.12);
+          vec3 c = vec3(1.0, 1.0, 1.0);
+          vec3 d = vec3(0.0, 0.15, 0.3);
+          return a + b*cos(6.28318*(c*t+d));
+        }
+
+        void main(){
+          vec2 uv = vUv;
+          vec2 p = uv * 2.0 - 1.0;
+          p.x *= uResolution.x / uResolution.y;
+
+          vec2 m = (uMouse * 2.0 - 1.0);
+          m.x *= uResolution.x / uResolution.y;
+
+          float t = uTime * 0.04; 
+          float d = length(p - m * 0.25);
+
+          float flow = 0.0;
+          flow += sin(p.x*1.8 + t*1.5 + p.y*1.2) * 0.5;
+          flow += sin(p.x*2.6 - t*1.0 + p.y*2.4) * 0.35;
+          flow += sin((p.x+p.y)*3.2 + t*2.0) * 0.25;
+          flow += sin(length(p)*4.0 - t*2.5) * 0.15;
+
+          float n = flow*0.35 + sin(d*2.5 - t*2.0)*0.5;
+          vec3 col = palette(n*0.6 + t*0.3);
+
+          float vignette = smoothstep(1.8, 0.0, length(p));
+          col *= vignette * 0.9;
+
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `
+    });
+
+    const geo = new THREE.PlaneGeometry(2,2);
+    scene.add(new THREE.Mesh(geo, material));
+
+    window.addEventListener('resize', ()=>{
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+    });
+    window.addEventListener('mousemove', (e)=>{
+      uniforms.uMouse.value.set(e.clientX/window.innerWidth, 1.0 - e.clientY/window.innerHeight);
+    });
+
+    function animate(time){
+      uniforms.uTime.value = time * 0.001;
+      renderer.render(scene, camera);
+      if(!reduceMotion) requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+    if(reduceMotion) renderer.render(scene, camera);
+  })();
+
+  /* ---------- Foreground: Floating Metallic Gold Object ---------- */
+  (function initForeground(){
+    const canvas = document.getElementById('fg');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 8);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambient);
+    const point1 = new THREE.PointLight(0xF1E5C3, 1.4, 20); 
+    point1.position.set(3, 2, 4);
+    scene.add(point1);
+    const point2 = new THREE.PointLight(0x8C6C42, 1.2, 20); 
+    point2.position.set(-3, -2, 3);
+    scene.add(point2);
+
+    const objGeo = new THREE.IcosahedronGeometry(1.7, 1);
+    const posAttr = objGeo.attributes.position;
+    for(let i=0; i<posAttr.count; i++){
+      const vx = posAttr.getX(i), vy = posAttr.getY(i), vz = posAttr.getZ(i);
+      const len = Math.sqrt(vx*vx + vy*vy + vz*vz) || 1;
+      const jag = 1 + (Math.random() - 0.5) * 0.4; 
+      posAttr.setXYZ(i, (vx/len)*len*jag, (vy/len)*len*jag, (vz/len)*len*jag);
+    }
+    objGeo.computeVertexNormals();
+
+    const objMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1510, metalness:0.85, roughness:0.25, 
+      emissive: 0xC5A059, emissiveIntensity:0.15, transparent:true, opacity:0.96,
+      flatShading:true
+    });
+    const obj = new THREE.Mesh(objGeo, objMat);
+    obj.position.set(2.6, 0.4, 0);
+    scene.add(obj);
+
+    const wireMat = new THREE.MeshBasicMaterial({ color:0xC5A059, wireframe:true, transparent:true, opacity:0.12 });
+    const wireObj = new THREE.Mesh(objGeo, wireMat);
+    wireObj.position.copy(obj.position);
+    scene.add(wireObj);
+
+    const particleCount = 200;
+    const positions = new Float32Array(particleCount * 3);
+    for(let i=0; i<particleCount; i++){
+      positions[i*3] = (Math.random()-0.5) * 16;
+      positions[i*3+1] = (Math.random()-0.5) * 10;
+      positions[i*3+2] = (Math.random()-0.5) * 6 - 2;
+    }
+    const particleGeo = new THREE.BufferGeometry();
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particleMat = new THREE.PointsMaterial({ color: 0xF1E5C3, size:0.02, transparent:true, opacity:0.35 });
+    const particles = new THREE.Points(particleGeo, particleMat);
+    scene.add(particles);
+
+    let mouseX = 0, mouseY = 0;
+    window.addEventListener('mousemove', (e)=>{
+      mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+      mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+    });
+
+    window.addEventListener('resize', ()=>{
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    let t = 0;
+    function animate(){
+      t += 0.003; 
+      obj.rotation.x = t * 0.6;
+      obj.rotation.y = t * 0.4;
+      wireObj.rotation.copy(obj.rotation);
+
+      camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.02;
+      camera.position.y += (-mouseY * 0.3 - camera.position.y) * 0.02;
+      camera.lookAt(1.2, 0, 0);
+
+      particles.rotation.y = t * 0.04;
+
+      renderer.render(scene, camera);
+      if(!reduceMotion) requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+    if(reduceMotion) renderer.render(scene, camera);
+  })();
+</script>
+
+</body>
+</html>
