@@ -834,10 +834,11 @@
 
 <script>
   /* ---------- Cinematic Drama Loader Logic (7.5 Seconds) ---------- */
-  document.addEventListener("DOMContentLoaded", () => {
+  function initLoader() {
     const loader = document.getElementById("stickman-loader");
     const progressBar = document.getElementById("stickman-progress");
-    
+    if (!loader) return;
+
     const loadDuration = 7500; 
     let prog = 0;
     const tick = 50; 
@@ -848,20 +849,32 @@
         prog = 100;
         clearInterval(progInt);
       }
-      progressBar.style.width = `${prog}%`;
+      if (progressBar) progressBar.style.width = `${prog}%`;
     }, tick);
 
     setTimeout(() => {
-      loader.classList.add("hidden");
-      document.body.style.overflowY = "auto";
-      
-      setTimeout(() => {
+      try {
+        loader.classList.add("hidden");
+        document.body.style.overflowY = "auto";
+        
+        setTimeout(() => {
+          loader.style.display = "none";
+          if (typeof triggerNameScramble === 'function') triggerNameScramble();
+        }, 800);
+      } catch (e) {
+        // Ultimate fallback to ensure the site is usable even if animation fails
         loader.style.display = "none";
-        triggerNameScramble();
-      }, 800);
-      
+        document.body.style.overflowY = "auto";
+      }
     }, loadDuration + 300); 
-  });
+  }
+
+  // Guarantee execution regardless of when the script is loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initLoader);
+  } else {
+    initLoader();
+  }
 
 
   /* ---------- 9-Tab Scrubbing Effect on Scroll ---------- */
@@ -1021,180 +1034,188 @@
 
   /* ---------- Background: Elegant Premium Shader ---------- */
   (function initBackground(){
-    const canvas = document.getElementById('bg');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-
-    const uniforms = {
-      uTime: { value: 0 },
-      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-      uMouse: { value: new THREE.Vector2(0.5, 0.5) }
-    };
-
-    const material = new THREE.ShaderMaterial({
-      uniforms,
-      vertexShader: `
-        varying vec2 vUv;
-        void main(){
-          vUv = uv;
-          gl_Position = vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        precision highp float;
-        varying vec2 vUv;
-        uniform float uTime;
-        uniform vec2 uResolution;
-        uniform vec2 uMouse;
-
-        // Premium Gold/Dark Palette
-        vec3 palette(float t){
-          vec3 a = vec3(0.04, 0.03, 0.02);
-          vec3 b = vec3(0.35, 0.25, 0.12);
-          vec3 c = vec3(1.0, 1.0, 1.0);
-          vec3 d = vec3(0.0, 0.15, 0.3);
-          return a + b*cos(6.28318*(c*t+d));
-        }
-
-        void main(){
-          vec2 uv = vUv;
-          vec2 p = uv * 2.0 - 1.0;
-          p.x *= uResolution.x / uResolution.y;
-
-          vec2 m = (uMouse * 2.0 - 1.0);
-          m.x *= uResolution.x / uResolution.y;
-
-          float t = uTime * 0.04; 
-          float d = length(p - m * 0.25);
-
-          float flow = 0.0;
-          flow += sin(p.x*1.8 + t*1.5 + p.y*1.2) * 0.5;
-          flow += sin(p.x*2.6 - t*1.0 + p.y*2.4) * 0.35;
-          flow += sin((p.x+p.y)*3.2 + t*2.0) * 0.25;
-          flow += sin(length(p)*4.0 - t*2.5) * 0.15;
-
-          float n = flow*0.35 + sin(d*2.5 - t*2.0)*0.5;
-          vec3 col = palette(n*0.6 + t*0.3);
-
-          float vignette = smoothstep(1.8, 0.0, length(p));
-          col *= vignette * 0.9;
-
-          gl_FragColor = vec4(col, 1.0);
-        }
-      `
-    });
-
-    const geo = new THREE.PlaneGeometry(2,2);
-    scene.add(new THREE.Mesh(geo, material));
-
-    window.addEventListener('resize', ()=>{
+    try {
+      const canvas = document.getElementById('bg');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
-      uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
-    });
-    window.addEventListener('mousemove', (e)=>{
-      uniforms.uMouse.value.set(e.clientX/window.innerWidth, 1.0 - e.clientY/window.innerHeight);
-    });
 
-    function animate(time){
-      uniforms.uTime.value = time * 0.001;
-      renderer.render(scene, camera);
-      if(!reduceMotion) requestAnimationFrame(animate);
+      const scene = new THREE.Scene();
+      const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+
+      const uniforms = {
+        uTime: { value: 0 },
+        uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+        uMouse: { value: new THREE.Vector2(0.5, 0.5) }
+      };
+
+      const material = new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: `
+          varying vec2 vUv;
+          void main(){
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          precision highp float;
+          varying vec2 vUv;
+          uniform float uTime;
+          uniform vec2 uResolution;
+          uniform vec2 uMouse;
+
+          // Premium Gold/Dark Palette
+          vec3 palette(float t){
+            vec3 a = vec3(0.04, 0.03, 0.02);
+            vec3 b = vec3(0.35, 0.25, 0.12);
+            vec3 c = vec3(1.0, 1.0, 1.0);
+            vec3 d = vec3(0.0, 0.15, 0.3);
+            return a + b*cos(6.28318*(c*t+d));
+          }
+
+          void main(){
+            vec2 uv = vUv;
+            vec2 p = uv * 2.0 - 1.0;
+            p.x *= uResolution.x / uResolution.y;
+
+            vec2 m = (uMouse * 2.0 - 1.0);
+            m.x *= uResolution.x / uResolution.y;
+
+            float t = uTime * 0.04; 
+            float d = length(p - m * 0.25);
+
+            float flow = 0.0;
+            flow += sin(p.x*1.8 + t*1.5 + p.y*1.2) * 0.5;
+            flow += sin(p.x*2.6 - t*1.0 + p.y*2.4) * 0.35;
+            flow += sin((p.x+p.y)*3.2 + t*2.0) * 0.25;
+            flow += sin(length(p)*4.0 - t*2.5) * 0.15;
+
+            float n = flow*0.35 + sin(d*2.5 - t*2.0)*0.5;
+            vec3 col = palette(n*0.6 + t*0.3);
+
+            float vignette = smoothstep(1.8, 0.0, length(p));
+            col *= vignette * 0.9;
+
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `
+      });
+
+      const geo = new THREE.PlaneGeometry(2,2);
+      scene.add(new THREE.Mesh(geo, material));
+
+      window.addEventListener('resize', ()=>{
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+      });
+      window.addEventListener('mousemove', (e)=>{
+        uniforms.uMouse.value.set(e.clientX/window.innerWidth, 1.0 - e.clientY/window.innerHeight);
+      });
+
+      function animate(time){
+        uniforms.uTime.value = time * 0.001;
+        renderer.render(scene, camera);
+        if(!reduceMotion) requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+      if(reduceMotion) renderer.render(scene, camera);
+    } catch (err) {
+      console.warn("WebGL Background not supported on this device.", err);
     }
-    requestAnimationFrame(animate);
-    if(reduceMotion) renderer.render(scene, camera);
   })();
 
   /* ---------- Foreground: Floating Metallic Gold Object ---------- */
   (function initForeground(){
-    const canvas = document.getElementById('fg');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
-    camera.position.set(0, 0, 8);
-
-    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-    scene.add(ambient);
-    const point1 = new THREE.PointLight(0xF1E5C3, 1.4, 20); 
-    point1.position.set(3, 2, 4);
-    scene.add(point1);
-    const point2 = new THREE.PointLight(0x8C6C42, 1.2, 20); 
-    point2.position.set(-3, -2, 3);
-    scene.add(point2);
-
-    const objGeo = new THREE.IcosahedronGeometry(1.7, 1);
-    const posAttr = objGeo.attributes.position;
-    for(let i=0; i<posAttr.count; i++){
-      const vx = posAttr.getX(i), vy = posAttr.getY(i), vz = posAttr.getZ(i);
-      const len = Math.sqrt(vx*vx + vy*vy + vz*vz) || 1;
-      const jag = 1 + (Math.random() - 0.5) * 0.4; 
-      posAttr.setXYZ(i, (vx/len)*len*jag, (vy/len)*len*jag, (vz/len)*len*jag);
-    }
-    objGeo.computeVertexNormals();
-
-    const objMat = new THREE.MeshStandardMaterial({
-      color: 0x1a1510, metalness:0.85, roughness:0.25, 
-      emissive: 0xC5A059, emissiveIntensity:0.15, transparent:true, opacity:0.96,
-      flatShading:true
-    });
-    const obj = new THREE.Mesh(objGeo, objMat);
-    obj.position.set(2.6, 0.4, 0);
-    scene.add(obj);
-
-    const wireMat = new THREE.MeshBasicMaterial({ color:0xC5A059, wireframe:true, transparent:true, opacity:0.12 });
-    const wireObj = new THREE.Mesh(objGeo, wireMat);
-    wireObj.position.copy(obj.position);
-    scene.add(wireObj);
-
-    const particleCount = 200;
-    const positions = new Float32Array(particleCount * 3);
-    for(let i=0; i<particleCount; i++){
-      positions[i*3] = (Math.random()-0.5) * 16;
-      positions[i*3+1] = (Math.random()-0.5) * 10;
-      positions[i*3+2] = (Math.random()-0.5) * 6 - 2;
-    }
-    const particleGeo = new THREE.BufferGeometry();
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const particleMat = new THREE.PointsMaterial({ color: 0xF1E5C3, size:0.02, transparent:true, opacity:0.35 });
-    const particles = new THREE.Points(particleGeo, particleMat);
-    scene.add(particles);
-
-    let mouseX = 0, mouseY = 0;
-    window.addEventListener('mousemove', (e)=>{
-      mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-      mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-    });
-
-    window.addEventListener('resize', ()=>{
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
+    try {
+      const canvas = document.getElementById('fg');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 
-    let t = 0;
-    function animate(){
-      t += 0.003; 
-      obj.rotation.x = t * 0.6;
-      obj.rotation.y = t * 0.4;
-      wireObj.rotation.copy(obj.rotation);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+      camera.position.set(0, 0, 8);
 
-      camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.02;
-      camera.position.y += (-mouseY * 0.3 - camera.position.y) * 0.02;
-      camera.lookAt(1.2, 0, 0);
+      const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+      scene.add(ambient);
+      const point1 = new THREE.PointLight(0xF1E5C3, 1.4, 20); 
+      point1.position.set(3, 2, 4);
+      scene.add(point1);
+      const point2 = new THREE.PointLight(0x8C6C42, 1.2, 20); 
+      point2.position.set(-3, -2, 3);
+      scene.add(point2);
 
-      particles.rotation.y = t * 0.04;
+      const objGeo = new THREE.IcosahedronGeometry(1.7, 1);
+      const posAttr = objGeo.attributes.position;
+      for(let i=0; i<posAttr.count; i++){
+        const vx = posAttr.getX(i), vy = posAttr.getY(i), vz = posAttr.getZ(i);
+        const len = Math.sqrt(vx*vx + vy*vy + vz*vz) || 1;
+        const jag = 1 + (Math.random() - 0.5) * 0.4; 
+        posAttr.setXYZ(i, (vx/len)*len*jag, (vy/len)*len*jag, (vz/len)*len*jag);
+      }
+      objGeo.computeVertexNormals();
 
-      renderer.render(scene, camera);
-      if(!reduceMotion) requestAnimationFrame(animate);
+      const objMat = new THREE.MeshStandardMaterial({
+        color: 0x1a1510, metalness:0.85, roughness:0.25, 
+        emissive: 0xC5A059, emissiveIntensity:0.15, transparent:true, opacity:0.96,
+        flatShading:true
+      });
+      const obj = new THREE.Mesh(objGeo, objMat);
+      obj.position.set(2.6, 0.4, 0);
+      scene.add(obj);
+
+      const wireMat = new THREE.MeshBasicMaterial({ color:0xC5A059, wireframe:true, transparent:true, opacity:0.12 });
+      const wireObj = new THREE.Mesh(objGeo, wireMat);
+      wireObj.position.copy(obj.position);
+      scene.add(wireObj);
+
+      const particleCount = 200;
+      const positions = new Float32Array(particleCount * 3);
+      for(let i=0; i<particleCount; i++){
+        positions[i*3] = (Math.random()-0.5) * 16;
+        positions[i*3+1] = (Math.random()-0.5) * 10;
+        positions[i*3+2] = (Math.random()-0.5) * 6 - 2;
+      }
+      const particleGeo = new THREE.BufferGeometry();
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const particleMat = new THREE.PointsMaterial({ color: 0xF1E5C3, size:0.02, transparent:true, opacity:0.35 });
+      const particles = new THREE.Points(particleGeo, particleMat);
+      scene.add(particles);
+
+      let mouseX = 0, mouseY = 0;
+      window.addEventListener('mousemove', (e)=>{
+        mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+        mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+      });
+
+      window.addEventListener('resize', ()=>{
+        camera.aspect = window.innerWidth/window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      let t = 0;
+      function animate(){
+        t += 0.003; 
+        obj.rotation.x = t * 0.6;
+        obj.rotation.y = t * 0.4;
+        wireObj.rotation.copy(obj.rotation);
+
+        camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.02;
+        camera.position.y += (-mouseY * 0.3 - camera.position.y) * 0.02;
+        camera.lookAt(1.2, 0, 0);
+
+        particles.rotation.y = t * 0.04;
+
+        renderer.render(scene, camera);
+        if(!reduceMotion) requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+      if(reduceMotion) renderer.render(scene, camera);
+    } catch (err) {
+      console.warn("WebGL Foreground not supported on this device.", err);
     }
-    requestAnimationFrame(animate);
-    if(reduceMotion) renderer.render(scene, camera);
   })();
 </script>
 
